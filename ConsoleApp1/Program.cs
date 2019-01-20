@@ -11,19 +11,43 @@ namespace ConsoleApp1
         static void Main(string[] args)
         {
             Console.WriteLine("Hello World!");
+            var indexPvalueThreshold = 0.00001;
+            var suggestivePvalueThreshold = 0.0001;
 
             try
             {
                 var dataset = File.ReadLines("C:\\Users\\Dorota Kopczyk\\Downloads\\input.txt").Skip(1);
                 var markers =  TransformInputFileToListOfObjects(dataset);
+
+                //TODO: Verify order of chromosomes too 
                 var chromosomeSets = markers.GroupBy(c => c.Chromosome).Select(c => c.ToList()).ToList();
 
                 // All the work is done for a set of chromosomes,
                 // where first the chromosomes are in order and then so are positions. (genomic order)
                 foreach (var chromosomeSet in chromosomeSets)
                 {
+                    // ChromosomeSet cant be assigned to bc its a foreach iteration variable
+                    // thus it's immutable. It needs to be assignable. This is important in case we need to 
+                    // manipulate our list 
+                    var workingSet = chromosomeSet; 
+
                     //Verify position
-                    var isSorted = IsSorted(chromosomeSet);
+                    var isSorted = IsSorted(workingSet);
+                    if (!isSorted) //Be nice and resort if data got messed up
+                    {
+                        Console.WriteLine($"Markers for chromosome {workingSet.First().Chromosome} are not in order. Reshuffling...");
+                        workingSet = chromosomeSet.OrderBy(x => x.Position).ToList();
+                    }
+
+                    var stepOneCandidates = workingSet.Where(x => x.Pvalue < indexPvalueThreshold);
+                    if (!stepOneCandidates.Any())
+                    {
+                        Console.WriteLine($"For chromosome {workingSet.First().Chromosome}, no markers found with an index p-value threshold exceeding {indexPvalueThreshold}");
+                    }
+                    else
+                    {
+                        //We can now begin defining a region.
+                    }
                 }
             }
             catch (Exception e)

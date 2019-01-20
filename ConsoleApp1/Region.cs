@@ -15,6 +15,8 @@ namespace ConsoleApp1
         public int NumSigMarkers { get; set; }
         public int NumSuggestiveMarkers { get; set; }
         public int NumTotalMarkers { get; set; }
+
+        //RegionStop - RegionStart
         public int SizeOfRegion { get; set; }
     }
 }

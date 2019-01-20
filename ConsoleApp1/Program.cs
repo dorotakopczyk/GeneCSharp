@@ -39,14 +39,30 @@ namespace ConsoleApp1
                         workingSet = chromosomeSet.OrderBy(x => x.Position).ToList();
                     }
 
-                    var stepOneCandidates = workingSet.Where(x => x.Pvalue < indexPvalueThreshold);
+                    var stepOneCandidates = workingSet.Where(x => x.Pvalue < indexPvalueThreshold).ToList();
                     if (!stepOneCandidates.Any())
                     {
                         Console.WriteLine($"For chromosome {workingSet.First().Chromosome}, no markers found with an index p-value threshold exceeding {indexPvalueThreshold}");
                     }
                     else
                     {
-                        //We can now begin defining a region.
+                        // We can now begin defining a region. Expand the search +/- 500k (position) on that chromosome.
+                        foreach (var candidate in stepOneCandidates)
+                        {
+                            var startingPosition = candidate.Position - 500000;
+                            var endingPosition = candidate.Position + 500000;
+                            var stepTwoCandidates = stepOneCandidates
+                                .Where(x => x.Position >= startingPosition && 
+                                            x.Position <= endingPosition);
+
+                            var stepThreeCanditates =
+                                stepTwoCandidates.Where(x => x.Pvalue < suggestivePvalueThreshold).ToList(); // <--- These are your regions, now you just have to define where they stop and start.
+                            if (stepThreeCanditates.Any())
+                            {
+                                
+                            }
+                        }
+                       
                     }
                 }
             }

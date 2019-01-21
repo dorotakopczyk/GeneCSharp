@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Data;
 using System.IO;
 using System.Linq;
+using System.Runtime.CompilerServices;
 
 namespace ConsoleApp1
 {
@@ -13,6 +14,7 @@ namespace ConsoleApp1
             Console.WriteLine("Hello World!");
             var indexPvalueThreshold = 0.00001;
             var suggestivePvalueThreshold = 0.0001;
+            var resultSet = new List<Region>();
 
             try
             {
@@ -51,7 +53,7 @@ namespace ConsoleApp1
                         {
                             var startingPosition = candidate.Position - 500000;
                             var endingPosition = candidate.Position + 500000;
-                            var stepTwoCandidates = stepOneCandidates
+                            var stepTwoCandidates = stepOneCandidates //TODO: should you  pull from here of working chrom (workingSet)
                                 .Where(x => x.Position >= startingPosition && 
                                             x.Position <= endingPosition);
 
@@ -59,10 +61,36 @@ namespace ConsoleApp1
                                 stepTwoCandidates.Where(x => x.Pvalue < suggestivePvalueThreshold).ToList(); // <--- These are your regions, now you just have to define where they stop and start.
                             if (stepThreeCanditates.Any())
                             {
-                                
+                                foreach (var regionCandidate in stepThreeCanditates)
+                                {
+                                    //First, define the region by expanding the search results +/- 500k again
+                                    var startingPositionReg = regionCandidate.Position - 500000;
+                                    var endingPositionReg = regionCandidate.Position + 500000;
+                                    var region = chromosomeSet.Where(x =>
+                                        x.Position >= startingPositionReg && x.Position <= endingPositionReg).ToList();
+
+                                    var newRegion = new Region()
+                                    {
+                                        RegionIndex = resultSet.Count + 1, 
+                                        Chr = Int32.Parse(region.First().Chromosome),
+                                        // The name of the marker with the minimum p-value in that region
+                                        MarkerName = region.OrderByDescending(p => p.Pvalue).First().Name,
+                                        // The p-value of the marker with the minimum p-valu
+                                        Pvalue = region.OrderByDescending(p => p.Pvalue).First().Pvalue,
+                                        RegionStart = region.OrderBy(p => p.Position).First().Position,
+                                        RegionStop = region.OrderByDescending(p => p.Position).First().Position,
+                                        // The number of markers in the region with a p-value less than the index p-value threshold
+                                        NumSigMarkers = region.Count(x => x.Pvalue < indexPvalueThreshold),
+                                        NumSuggestiveMarkers = region.Count(x => x.Pvalue < suggestivePvalueThreshold),
+                                        NumTotalMarkers = region.Count
+                                    };
+
+                                    newRegion.SizeOfRegion = newRegion.RegionStop - newRegion.RegionStart;
+
+                                    resultSet.Add(newRegion);
+                                }
                             }
                         }
-                       
                     }
                 }
             }

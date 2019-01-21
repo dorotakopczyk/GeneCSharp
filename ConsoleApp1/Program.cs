@@ -1,9 +1,7 @@
 ﻿using System;
 using System.Collections.Generic;
-using System.Data;
 using System.IO;
 using System.Linq;
-using System.Runtime.CompilerServices;
 
 namespace ConsoleApp1
 {
@@ -31,61 +29,42 @@ namespace ConsoleApp1
                     // ChromosomeSet cant be assigned to bc its a foreach iteration variable
                     // thus it's immutable. It needs to be assignable. This is important in case we need to 
                     // manipulate our list 
-                    var workingSet = chromosomeSet; 
+                    var workingChromosome = chromosomeSet;
 
                     //Verify position
-                    var isSorted = IsSorted(workingSet);
+                    var isSorted = IsSorted(workingChromosome);
                     if (!isSorted) //Be nice and resort if data got messed up
                     {
-                        Console.WriteLine($"Markers for chromosome {workingSet.First().Chromosome} are not in order. Reshuffling...");
-                        workingSet = chromosomeSet.OrderBy(x => x.Position).ToList();
+                        Console.WriteLine($"Markers for chromosome {workingChromosome.First().Chromosome} are not in order. Reshuffling...");
+                        workingChromosome = chromosomeSet.OrderBy(x => x.Position).ToList();
                     }
 
-                    var stepOneCandidates = workingSet.Where(x => x.Pvalue < indexPvalueThreshold).ToList();
+                    var stepOneCandidates = SnpExceedingIndexThreshold(indexPvalueThreshold, workingChromosome);
+
                     if (!stepOneCandidates.Any())
                     {
-                        Console.WriteLine($"For chromosome {workingSet.First().Chromosome}, no markers found with an index p-value threshold exceeding {indexPvalueThreshold}");
+                        Console.WriteLine($"For chromosome {workingChromosome.First().Chromosome}, no markers found with an index p-value threshold exceeding {indexPvalueThreshold}");
                     }
                     else
                     {
-                        // We can now begin defining a region. Expand the search +/- 500k (position) on that chromosome.
+                        // We will then search 500,000 base pairs in both directions 
+                        // We can now begin defining a region. Expand the search +/- 500k (position) 
                         foreach (var candidate in stepOneCandidates)
                         {
                             var startingPosition = candidate.Position - 500000;
                             var endingPosition = candidate.Position + 500000;
-                            var stepTwoCandidates = stepOneCandidates //TODO: should you  pull from here of working chrom (workingSet)
-                                .Where(x => x.Position >= startingPosition && 
+                            var stepTwoCandidates = workingChromosome  // On that chromosome.
+                                .Where(x => x.Position >= startingPosition &&
                                             x.Position <= endingPosition);
 
-                            var stepThreeCanditates =
-                                stepTwoCandidates.Where(x => x.Pvalue < suggestivePvalueThreshold).ToList(); // <--- These are your regions, now you just have to define where they stop and start.
-                            if (stepThreeCanditates.Any())
+                            // We can now build our regions and add them to the result set.
+                            List<Marker> regions = GetRegionCandidates(suggestivePvalueThreshold, stepTwoCandidates);
+                            if (regions.Any())
                             {
-                                foreach (var regionCandidate in stepThreeCanditates)
+                                foreach (var regionCandidate in regions)
                                 {
-                                    //First, define the region by expanding the search results +/- 500k again
-                                    var startingPositionReg = regionCandidate.Position - 500000;
-                                    var endingPositionReg = regionCandidate.Position + 500000;
-                                    var region = chromosomeSet.Where(x =>
-                                        x.Position >= startingPositionReg && x.Position <= endingPositionReg).ToList();
-
-                                    var newRegion = new Region()
-                                    {
-                                        RegionIndex = resultSet.Count + 1, 
-                                        Chr = Int32.Parse(region.First().Chromosome),
-                                        // The name of the marker with the minimum p-value in that region
-                                        MarkerName = region.OrderByDescending(p => p.Pvalue).First().Name,
-                                        // The p-value of the marker with the minimum p-valu
-                                        Pvalue = region.OrderByDescending(p => p.Pvalue).First().Pvalue,
-                                        RegionStart = region.OrderBy(p => p.Position).First().Position,
-                                        RegionStop = region.OrderByDescending(p => p.Position).First().Position,
-                                        // The number of markers in the region with a p-value less than the index p-value threshold
-                                        NumSigMarkers = region.Count(x => x.Pvalue < indexPvalueThreshold),
-                                        NumSuggestiveMarkers = region.Count(x => x.Pvalue < suggestivePvalueThreshold),
-                                        NumTotalMarkers = region.Count
-                                    };
-
-                                    newRegion.SizeOfRegion = newRegion.RegionStop - newRegion.RegionStart;
+                                    
+                                    var newRegion = BuildRegion(indexPvalueThreshold, suggestivePvalueThreshold, resultSet, chromosomeSet, regionCandidate);
 
                                     resultSet.Add(newRegion);
                                 }
@@ -102,6 +81,46 @@ namespace ConsoleApp1
             {
                 Console.WriteLine("Executing finally block.");
             }
+        }
+
+        private static Region BuildRegion(double indexPvalueThreshold, double suggestivePvalueThreshold, List<Region> resultSet, List<Marker> chromosomeSet, Marker regionCandidate)
+        {
+            //First, define the region by expanding the search results +/- 500k again
+            var startingPositionReg = regionCandidate.Position - 500000;
+            var endingPositionReg = regionCandidate.Position + 500000;
+            var region = chromosomeSet.Where(x =>
+                x.Position >= startingPositionReg && x.Position <= endingPositionReg).ToList();
+
+            var newRegion = new Region()
+            {
+                RegionIndex = resultSet.Count + 1,
+                Chr = Int32.Parse(region.First().Chromosome),
+                // The name of the marker with the minimum p-value in that region
+                MarkerName = region.OrderByDescending(p => p.Pvalue).First().Name,
+                // The p-value of the marker with the minimum p-valu
+                Pvalue = region.OrderByDescending(p => p.Pvalue).First().Pvalue,
+                RegionStart = region.OrderBy(p => p.Position).First().Position,
+                RegionStop = region.OrderByDescending(p => p.Position).First().Position,
+                // The number of markers in the region with a p-value less than the index p-value threshold
+                NumSigMarkers = region.Count(x => x.Pvalue < indexPvalueThreshold),
+                NumSuggestiveMarkers = region.Count(x => x.Pvalue < suggestivePvalueThreshold),
+                NumTotalMarkers = region.Count
+            };
+
+            newRegion.SizeOfRegion = newRegion.RegionStop - newRegion.RegionStart;
+            return newRegion;
+        }
+
+        private static List<Marker> GetRegionCandidates(double suggestivePvalueThreshold, IEnumerable<Marker> stepTwoCandidates)
+        {
+
+            // For any SNP on the same chromosome with a p-value that exceeds the suggestive p-value threshold (p<0.0001)
+            return stepTwoCandidates.Where(x => x.Pvalue < suggestivePvalueThreshold).ToList();
+        }
+
+        private static List<Marker> SnpExceedingIndexThreshold(double indexPvalueThreshold, List<Marker> workingSet)
+        {
+            return workingSet.Where(x => x.Pvalue < indexPvalueThreshold).ToList();
         }
 
         private static List<Marker> TransformInputFileToListOfObjects(IEnumerable<string> dataset)

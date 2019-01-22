@@ -12,12 +12,14 @@ namespace ConsoleApp1
         readonly double _indexPvalueThreshold; // = 0.00001;
         readonly double _suggestivePvalueThreshold; // = 0.0001;
         readonly string _inputFileLocation; // = "C:\\Users\\Dorota Kopczyk\\Downloads\\input.txt";
+        private readonly int _searchSpace; 
 
-        public GeneAnalyzer(double indexPvalueThreshold, double suggestivePvalueThreshold, string inputFileLocation)
+        public GeneAnalyzer(double indexPvalueThreshold, double suggestivePvalueThreshold, string inputFileLocation, int searchSpace)
         {
             _indexPvalueThreshold = indexPvalueThreshold;
             _suggestivePvalueThreshold = suggestivePvalueThreshold;
             _inputFileLocation = inputFileLocation;
+            _searchSpace = searchSpace;
         }
 
         public void RunProgram()
@@ -47,7 +49,7 @@ namespace ConsoleApp1
                     workingChromosome = chromosomeSet.OrderBy(x => x.Position).ToList();
                 }
 
-                var stepOneCandidates = GetRecordsExceedingIndexThreshold(_indexPvalueThreshold, workingChromosome);
+                var stepOneCandidates = GetRecordsExceedingIndexThreshold(workingChromosome);
 
                 if (!stepOneCandidates.Any())
                 {
@@ -59,11 +61,7 @@ namespace ConsoleApp1
                     // We can now begin defining a region. Expand the search +/- 500k (position) 
                     foreach (var candidate in stepOneCandidates)
                     {
-                        var startingPosition = candidate.Position - 500000;
-                        var endingPosition = candidate.Position + 500000;
-                        var stepTwoCandidates = workingChromosome  // On that chromosome.
-                            .Where(x => x.Position >= startingPosition &&
-                                        x.Position <= endingPosition);
+                       var stepTwoCandidates = GetExpandedSearchSpace(workingChromosome, candidate.Position);
 
                         // We can now build our regions and add them to the result set.
                         List<Marker> regions = GetRegionCandidates(_suggestivePvalueThreshold, stepTwoCandidates);
@@ -85,6 +83,16 @@ namespace ConsoleApp1
                     }
                 }
             }
+        }
+
+        public IEnumerable<Marker> GetExpandedSearchSpace(List<Marker> workingChromosome, int candidatePosition)
+        {
+            var startingPosition = candidatePosition - _searchSpace;
+            var endingPosition = candidatePosition + _searchSpace;
+            var stepTwoCandidates = workingChromosome  // On that chromosome.
+                .Where(x => x.Position >= startingPosition &&
+                            x.Position <= endingPosition);
+            return stepTwoCandidates;
         }
 
         private static Region BuildRegion(double indexPvalueThreshold, double suggestivePvalueThreshold, List<Region> resultSet, List<Marker> chromosomeSet, Marker regionCandidate)

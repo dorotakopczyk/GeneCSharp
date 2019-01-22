@@ -2,25 +2,27 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Text;
 
 namespace ConsoleApp1
 {
 
     public class GeneAnalyzer
     {
-        readonly double _indexPvalueThreshold; // = 0.00001;
-        readonly double _suggestivePvalueThreshold; // = 0.0001;
-        readonly string _inputFileLocation; // = "C:\\Users\\Dorota Kopczyk\\Downloads\\input.txt";
-        private readonly int _searchSpace;
-        List<Region> resultSet = new List<Region>();
+        readonly double _indexPvalueThreshold;
+        readonly double _suggestivePvalueThreshold; 
+        readonly string _inputFileLocation; 
+        readonly int _searchSpace;
+        readonly string _outputFileLocation; 
 
-        public GeneAnalyzer(double indexPvalueThreshold, double suggestivePvalueThreshold, string inputFileLocation, int searchSpace)
+        List<Region> _resultSet = new List<Region>();
+
+        public GeneAnalyzer(double indexPvalueThreshold, double suggestivePvalueThreshold, string inputFileLocation, int searchSpace, string outputFileLocation)
         {
             _indexPvalueThreshold = indexPvalueThreshold;
             _suggestivePvalueThreshold = suggestivePvalueThreshold;
             _inputFileLocation = inputFileLocation;
             _searchSpace = searchSpace;
+            _outputFileLocation = outputFileLocation;
         }
 
         public List<Region> GetMyRegions()
@@ -76,12 +78,12 @@ namespace ConsoleApp1
 
                                 // We will define the start and stop positions of the region as the positions of the first and last marker
                                 // in the region that meet the SUGGESTIVE THRESHOLD.
-                                var newRegion = BuildRegion(resultSet, expandedResults.ToList(), regionCandidate);
+                                var newRegion = BuildRegion(_resultSet, expandedResults.ToList(), regionCandidate);
 
                                 if (IsDistinct(newRegion))
                                 {
-                                    newRegion.RegionIndex = resultSet.Count + 1;
-                                    resultSet.Add(newRegion);
+                                    newRegion.RegionIndex = _resultSet.Count + 1;
+                                    _resultSet.Add(newRegion);
                                 }
                             }
                         }
@@ -91,12 +93,44 @@ namespace ConsoleApp1
 
             // However, there are several regions with many markers below this threshold that are not unique. These markers are correlated due to the underlying
             // structure of the genome (linkage disequilibrium), and we want to identify and summarize all of the UNIQUE regions.
-            return resultSet;
+            BuildResultFile(_outputFileLocation);
+            return _resultSet;
+        }
+
+        private void BuildResultFile(string resultsFileLocation)
+        {
+
+            string[] lines = { "First line", "Second line", "Third line" };
+            // WriteAllLines creates a file, writes a collection of strings to the file,
+            // and then closes the file.  You do NOT need to call Flush() or Close().
+
+            using (System.IO.StreamWriter file = new System.IO.StreamWriter(resultsFileLocation))
+            {
+                var header = new string[] { "Region", "MarkerName", "Chr", "Position", "P-value", "RegionStart",
+                    "RegionStop", "NumSigMarkers", "NumSuggestiveMarkers",  "NumTotalMarkers", "SizeOfRegion" };
+                file.WriteLine(string.Join("\t", header));
+
+                foreach (var result in _resultSet)
+                {
+                    var arrayResult = new string[]
+                    {
+                        result.RegionIndex.ToString(), result.MarkerName, result.Chr.ToString(),
+                        result.Position.ToString(),
+                        result.Pvalue.ToString(), result.RegionStart.ToString(), result.RegionStop.ToString(),
+                        result.NumSigMarkers.ToString(),
+                        result.NumSuggestiveMarkers.ToString(), result.NumTotalMarkers.ToString(),
+                        result.SizeOfRegion.ToString()
+                    };
+
+
+                    file.WriteLine(string.Join("\t", arrayResult));
+                }
+            }
         }
 
         private bool IsDistinct(Region newRegion)
         {
-            var dupe = resultSet.Where(x => x.Pvalue == newRegion.Pvalue && 
+            var dupe = _resultSet.Where(x => x.Pvalue == newRegion.Pvalue && 
                                                   x.Chr == newRegion.Chr &&
                                                   x.MarkerName == newRegion.MarkerName &&
                                                   x.NumSigMarkers == newRegion.NumSigMarkers &&
@@ -140,6 +174,7 @@ namespace ConsoleApp1
 
                 // The name of the marker with the minimum p-value in that region
                 MarkerName = region.OrderBy(p => p.Pvalue).First().Name,
+                Position = region.OrderBy(p => p.Pvalue).First().Position,
 
                 // The p-value of the marker with the minimum p-value
                 Pvalue = region.OrderBy(p => p.Pvalue).First().Pvalue,

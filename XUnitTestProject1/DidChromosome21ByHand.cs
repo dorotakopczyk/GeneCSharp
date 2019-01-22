@@ -7,17 +7,23 @@ namespace Test
 {
     public class DidChromosome21ByHand
     {
+        private readonly GeneAnalyzer _geneAnalyzer;
+
+        public DidChromosome21ByHand()
+        {
+            var inputFileLocation = "C:\\SC\\Repos\\GeneCSharp\\XUnitTestProject1\\input.txt";
+            var outputFileLocation = "C:\\SC\\Repos\\GeneCSharp\\XUnitTestProject1\\output.txt";
+            _geneAnalyzer = new GeneAnalyzer(0.00001, 0.0001, inputFileLocation, 500000, outputFileLocation);
+        }
+
         [Fact]
         public void ThreeRecordsReturnWithIndexThreshold()
         {
-            var inputFileLocation = "C:\\SC\\Repos\\GeneCSharp\\XUnitTestProject1\\input.txt";
-            var geneAnalyzer = new GeneAnalyzer(0.00001, 0.0001, inputFileLocation, 500000);
+            var dataset = File.ReadLines("C:\\SC\\Repos\\GeneCSharp\\XUnitTestProject1\\input.txt").Skip(1); //Assuming row 1 is headers 
 
-            var dataset = File.ReadLines(inputFileLocation).Skip(1); //Assuming row 1 is headers 
+            var markers = _geneAnalyzer.TransformInputFileToListOfObjects(dataset);
 
-            var markers = geneAnalyzer.TransformInputFileToListOfObjects(dataset);
-
-            var result = geneAnalyzer.GetRecordsExceedingIndexThreshold(markers);
+            var result = _geneAnalyzer.GetRecordsExceedingIndexThreshold(markers);
 
             Assert.Equal(3, result.Count);
             Assert.Equal("rs11910404", result[0].Name);
@@ -32,13 +38,11 @@ namespace Test
         // I know I don't need marker name, I'm just leaving it in here bc its easier to make sense of the data
         public void FirstExpansionOfSearchSpaceYieldsExpectedCountOfResults(string markerName, int markerPosition, int expectedResultCount)
         {
-            var inputFileLocation = "C:\\SC\\Repos\\GeneCSharp\\XUnitTestProject1\\input.txt";
-            var geneAnalyzer = new GeneAnalyzer(0.00001, 0.0001, inputFileLocation, 500000);
-            var dataset = File.ReadLines(inputFileLocation).Skip(1); //Assuming row 1 is headers 
+            var dataset = File.ReadLines("C:\\SC\\Repos\\GeneCSharp\\XUnitTestProject1\\input.txt").Skip(1); //Assuming row 1 is headers 
 
-            var markers21 = geneAnalyzer.TransformInputFileToListOfObjects(dataset);
+            var markers21 = _geneAnalyzer.TransformInputFileToListOfObjects(dataset);
 
-            var results = geneAnalyzer.GetExpandedSearchSpace(markers21, markerPosition);
+            var results = _geneAnalyzer.GetExpandedSearchSpace(markers21, markerPosition);
 
             Assert.Equal(expectedResultCount, results.Count());
         }
@@ -49,15 +53,12 @@ namespace Test
         [InlineData("rs16991721", 34779464, 3)]
         public void DefiningPotentialRegionsYieldsExpectedResults(string markerName, int markerPosition, int expectedResultCount)
         {
-            var inputFileLocation = "C:\\SC\\Repos\\GeneCSharp\\XUnitTestProject1\\input.txt";
-            var geneAnalyzer = new GeneAnalyzer(0.00001, 0.0001, inputFileLocation, 500000);
-            var dataset = File.ReadLines(inputFileLocation).Skip(1); //Assuming row 1 is headers 
+            var dataset = File.ReadLines("C:\\SC\\Repos\\GeneCSharp\\XUnitTestProject1\\input.txt").Skip(1);
+            var markers21 = _geneAnalyzer.TransformInputFileToListOfObjects(dataset);
 
-            var markers21 = geneAnalyzer.TransformInputFileToListOfObjects(dataset);
+            var searchSet = _geneAnalyzer.GetExpandedSearchSpace(markers21, markerPosition);
 
-            var searchSet = geneAnalyzer.GetExpandedSearchSpace(markers21, markerPosition);
-
-            var results = geneAnalyzer.GetRecordsExceedingSuggestiveThreshold(searchSet);
+            var results = _geneAnalyzer.GetRecordsExceedingSuggestiveThreshold(searchSet);
 
             Assert.Equal(expectedResultCount, results.Count());
         }
@@ -65,9 +66,7 @@ namespace Test
         [Fact]
         public void ThereIsJustOneRegion()
         {
-            var inputFileLocation = "C:\\SC\\Repos\\GeneCSharp\\XUnitTestProject1\\input.txt";
-            var geneAnalyzer = new GeneAnalyzer(0.00001, 0.0001, inputFileLocation, 500000);
-            var results = geneAnalyzer.GetMyRegions(); 
+            var results = _geneAnalyzer.GetMyRegions(); 
 
             Assert.Single(results);
             Assert.Equal(1, results.Single().RegionIndex);

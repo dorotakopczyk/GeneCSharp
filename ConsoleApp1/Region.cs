@@ -10,6 +10,7 @@ namespace ConsoleApp1
         public string MarkerName { get; set; }
         public int Chr { get; set; }
         public double Pvalue { get; set; }
+        public int Position { get; set; }
         public int RegionStart { get; set; }
         public int RegionStop { get; set; }
         public int NumSigMarkers { get; set; }

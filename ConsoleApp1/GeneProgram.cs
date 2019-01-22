@@ -4,18 +4,17 @@ namespace ConsoleApp1
 {
     public class GeneProgram
     {
+        // java UniqueRegions input.txt output.txt 0.00001 0.0001 500000
         static void Main(string[] args)
         {
-            Console.WriteLine("Hello World!");
+            var inputFileLocation = args[0];
+            var outputFileLocation = args[1];
+            var indexPvalueThreshold = args[2];
+            var suggestivePvalueThreshold = args[3];
+            var searchSpace = args[4];
 
-            double _indexPvalueThreshold = 0.00001;
-            double _suggestivePvalueThreshold = 0.0001;
-            string _inputFileLocation = "C:\\Users\\Dorota Kopczyk\\Downloads\\input.txt";
-            int searchSpace = 500000;
-
-            var geneAnalyzer = new GeneAnalyzer(_indexPvalueThreshold, _suggestivePvalueThreshold, _inputFileLocation, searchSpace);
+            var geneAnalyzer = new GeneAnalyzer(double.Parse(indexPvalueThreshold), double.Parse(suggestivePvalueThreshold), inputFileLocation, int.Parse(searchSpace), outputFileLocation);
             geneAnalyzer.GetMyRegions();
-
         }
     }
 }

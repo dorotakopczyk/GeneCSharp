@@ -12,7 +12,8 @@ namespace ConsoleApp1
         readonly double _indexPvalueThreshold; // = 0.00001;
         readonly double _suggestivePvalueThreshold; // = 0.0001;
         readonly string _inputFileLocation; // = "C:\\Users\\Dorota Kopczyk\\Downloads\\input.txt";
-        private readonly int _searchSpace; 
+        private readonly int _searchSpace;
+        List<Region> resultSet = new List<Region>();
 
         public GeneAnalyzer(double indexPvalueThreshold, double suggestivePvalueThreshold, string inputFileLocation, int searchSpace)
         {
@@ -22,10 +23,8 @@ namespace ConsoleApp1
             _searchSpace = searchSpace;
         }
 
-        public void RunProgram()
+        public List<Region> GetMyRegions()
         {
-            var resultSet = new List<Region>();
-
             var dataset = File.ReadLines(_inputFileLocation).Skip(1); //Assuming row 1 is headers 
             var markers = TransformInputFileToListOfObjects(dataset);
 
@@ -79,11 +78,41 @@ namespace ConsoleApp1
                                 // in the region that meet the SUGGESTIVE THRESHOLD.
                                 var newRegion = BuildRegion(resultSet, expandedResults.ToList(), regionCandidate);
 
-                                resultSet.Add(newRegion);
+                                if (IsDistinct(newRegion))
+                                {
+                                    newRegion.RegionIndex = resultSet.Count + 1;
+                                    resultSet.Add(newRegion);
+                                }
                             }
                         }
                     }
                 }
+            }
+
+            // However, there are several regions with many markers below this threshold that are not unique. These markers are correlated due to the underlying
+            // structure of the genome (linkage disequilibrium), and we want to identify and summarize all of the UNIQUE regions.
+            return resultSet;
+        }
+
+        private bool IsDistinct(Region newRegion)
+        {
+            var dupe = resultSet.Where(x => x.Pvalue == newRegion.Pvalue && 
+                                                  x.Chr == newRegion.Chr &&
+                                                  x.MarkerName == newRegion.MarkerName &&
+                                                  x.NumSigMarkers == newRegion.NumSigMarkers &&
+                                                  x.NumSuggestiveMarkers == newRegion.NumSuggestiveMarkers &&
+                                                  x.NumTotalMarkers == newRegion.NumTotalMarkers &&
+                                                  x.SizeOfRegion == newRegion.SizeOfRegion &&
+                                                  x.RegionStart == newRegion.RegionStart &&
+                                                  x.RegionStop == newRegion.RegionStop).ToList();
+
+            if (dupe.Count > 0)
+            {
+                return false;
+            }
+            else
+            {
+                return true;
             }
         }
 
@@ -107,12 +136,14 @@ namespace ConsoleApp1
 
             var newRegion = new Region()
             {
-                RegionIndex = resultSet.Count + 1,
                 Chr = int.Parse(region.First().Chromosome),
+
                 // The name of the marker with the minimum p-value in that region
-                MarkerName = region.OrderByDescending(p => p.Pvalue).First().Name,
-                // The p-value of the marker with the minimum p-valu
-                Pvalue = region.OrderByDescending(p => p.Pvalue).First().Pvalue,
+                MarkerName = region.OrderBy(p => p.Pvalue).First().Name,
+
+                // The p-value of the marker with the minimum p-value
+                Pvalue = region.OrderBy(p => p.Pvalue).First().Pvalue,
+
                 RegionStart = region.OrderBy(p => p.Position).First().Position,
                 RegionStop = region.OrderByDescending(p => p.Position).First().Position,
                 // The number of markers in the region with a p-value less than the index p-value threshold
@@ -152,7 +183,7 @@ namespace ConsoleApp1
 
                 try
                 {
-                    record.Pvalue = Double.Parse(tempLine[3]);
+                    record.Pvalue = double.Parse(tempLine[3]);
                     filedata.Add(record);
                 }
                 catch(FormatException) //We only want to swallow format exceptions, otherwise it's scary
@@ -180,20 +211,7 @@ namespace ConsoleApp1
             return true;
         }
 
-        public double ParsePValue(string value)
-        {
-            double pvalue;
-            try
-            {
-                pvalue = Double.Parse(value);
-                return pvalue;
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine(e);
-                throw;
-            }
-        }
+        
 
     }
 }

@@ -14,7 +14,7 @@ namespace ConsoleApp1
             int searchSpace = 500000;
 
             var geneAnalyzer = new GeneAnalyzer(_indexPvalueThreshold, _suggestivePvalueThreshold, _inputFileLocation, searchSpace);
-            geneAnalyzer.RunProgram();
+            geneAnalyzer.GetMyRegions();
 
         }
     }

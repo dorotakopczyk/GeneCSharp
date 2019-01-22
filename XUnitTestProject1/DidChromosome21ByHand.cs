@@ -1,12 +1,11 @@
-using System;
 using System.IO;
 using System.Linq;
 using ConsoleApp1;
 using Xunit;
 
-namespace XUnitTestProject1
+namespace Test
 {
-    public class IDidChromosome21ByHand
+    public class DidChromosome21ByHand
     {
         [Fact]
         public void ThreeRecordsReturnWithIndexThreshold()
@@ -63,32 +62,25 @@ namespace XUnitTestProject1
             Assert.Equal(expectedResultCount, results.Count());
         }
 
-        /*
-        [Theory]
-        [InlineData("rs11910404", 34775341, 9)]
-        [InlineData("rs16991720", 34778632, 9)]
-        [InlineData("rs16991721", 34779464, 9)]
-        [InlineData("rs11910404", 34775341, 9)]
-        [InlineData("rs16991720", 34778632, 9)]
-        [InlineData("rs16991721", 34779464, 9)]
-        [InlineData("rs11910404", 34775341, 9)]
-        [InlineData("rs16991720", 34778632, 9)]
-        [InlineData("rs16991721", 34779464, 9)]
-        // I know I don't need marker name, I'm just leaving it in here bc its easier to make sense of the data
-        public void SecondExpansionOfSearchSpaceYieldsExpectedCountOfResults(string markerName, int markerPosition, int expectedResultCount)
+        [Fact]
+        public void ThereIsJustOneRegion()
         {
             var inputFileLocation = "C:\\SC\\Repos\\GeneCSharp\\XUnitTestProject1\\input.txt";
             var geneAnalyzer = new GeneAnalyzer(0.00001, 0.0001, inputFileLocation, 500000);
-            var dataset = File.ReadLines(inputFileLocation).Skip(1); //Assuming row 1 is headers 
+            var results = geneAnalyzer.GetMyRegions(); 
 
-            var markers21 = geneAnalyzer.TransformInputFileToListOfObjects(dataset);
-
-            var results = geneAnalyzer.GetExpandedSearchSpace(markers21, markerPosition);
-
-            Assert.Equal(expectedResultCount, results.Count());
+            Assert.Single(results);
+            Assert.Equal(1, results.Single().RegionIndex);
+            Assert.Equal("rs16991721", results.Single().MarkerName);
+            Assert.Equal(21, results.Single().Chr);
+            Assert.Equal(0.0000007890, results.Single().Pvalue);
+            Assert.Equal(34775341, results.Single().RegionStart);
+            Assert.Equal(34779464, results.Single().RegionStop);
+            Assert.Equal(3, results.Single().NumSigMarkers);
+            Assert.Equal(3, results.Single().NumSuggestiveMarkers);
+            Assert.Equal(3, results.Single().NumTotalMarkers);
+            Assert.Equal(4123, results.Single().SizeOfRegion);
         }
-
-        */
-
+       
     }
 }

@@ -64,18 +64,20 @@ namespace ConsoleApp1
                        var stepTwoCandidates = GetExpandedSearchSpace(workingChromosome, candidate.Position);
 
                         // We can now build our regions and add them to the result set.
-                        List<Marker> regions = GetRegionCandidates(_suggestivePvalueThreshold, stepTwoCandidates);
+                        var regionCandidates = GetRecordsExceedingSuggestiveThreshold(stepTwoCandidates);
 
                         // If we find any marker meeting these criteria, 
-                        if (regions.Any())
+                        if (regionCandidates.Any())
                         {
-                            foreach (var regionCandidate in regions)
+                            foreach (var regionCandidate in regionCandidates)
                             {
-
                                 // Then we will extend the window for another 500,000 base pairs beyond that and continue searching.
+                                // First, define the region by expanding the search results +/- 500k again
+                                var expandedResults = GetExpandedSearchSpace(workingChromosome, regionCandidate.Position);
+
                                 // We will define the start and stop positions of the region as the positions of the first and last marker
                                 // in the region that meet the SUGGESTIVE THRESHOLD.
-                                var newRegion = BuildRegion(_indexPvalueThreshold, _suggestivePvalueThreshold, resultSet, chromosomeSet, regionCandidate);
+                                var newRegion = BuildRegion(resultSet, expandedResults.ToList(), regionCandidate);
 
                                 resultSet.Add(newRegion);
                             }
@@ -95,22 +97,18 @@ namespace ConsoleApp1
             return stepTwoCandidates;
         }
 
-        private static Region BuildRegion(double indexPvalueThreshold, double suggestivePvalueThreshold, List<Region> resultSet, List<Marker> chromosomeSet, Marker regionCandidate)
+        public Region BuildRegion( List<Region> resultSet, List<Marker> chromosomeSet, Marker regionCandidate)
         {
-            //First, define the region by expanding the search results +/- 500k again
-            var startingPositionReg = regionCandidate.Position - 500000;
-            var endingPositionReg = regionCandidate.Position + 500000;
-
             // We will define the start and stop positions of the region as the positions of the first and last marker
             // in the region that meet the SUGGESTIVE THRESHOLD. 
-            // TODO: I was unsure if that meant that the region was also defined as ONLY markers that met the suggestive threshold
-            var region = chromosomeSet.Where(x =>
-                x.Position >= startingPositionReg && x.Position <= endingPositionReg && x.Pvalue < suggestivePvalueThreshold).ToList();
+            // TODO: I was not 100% if that caps locked above meant that the region was also defined as ONLY markers that met the suggestive threshold
+
+            var region = chromosomeSet.Where(x => x.Pvalue < _suggestivePvalueThreshold).ToList();
 
             var newRegion = new Region()
             {
                 RegionIndex = resultSet.Count + 1,
-                Chr = Int32.Parse(region.First().Chromosome),
+                Chr = int.Parse(region.First().Chromosome),
                 // The name of the marker with the minimum p-value in that region
                 MarkerName = region.OrderByDescending(p => p.Pvalue).First().Name,
                 // The p-value of the marker with the minimum p-valu
@@ -118,8 +116,8 @@ namespace ConsoleApp1
                 RegionStart = region.OrderBy(p => p.Position).First().Position,
                 RegionStop = region.OrderByDescending(p => p.Position).First().Position,
                 // The number of markers in the region with a p-value less than the index p-value threshold
-                NumSigMarkers = region.Count(x => x.Pvalue < indexPvalueThreshold),
-                NumSuggestiveMarkers = region.Count(x => x.Pvalue < suggestivePvalueThreshold),
+                NumSigMarkers = region.Count(x => x.Pvalue < _indexPvalueThreshold),
+                NumSuggestiveMarkers = region.Count(x => x.Pvalue < _suggestivePvalueThreshold),
                 NumTotalMarkers = region.Count
             };
 
@@ -127,11 +125,10 @@ namespace ConsoleApp1
             return newRegion;
         }
 
-        private static List<Marker> GetRegionCandidates(double suggestivePvalueThreshold, IEnumerable<Marker> stepTwoCandidates)
+        public List<Marker> GetRecordsExceedingSuggestiveThreshold(IEnumerable<Marker> stepTwoCandidates)
         {
-
             // For any SNP on the same chromosome with a p-value that exceeds the suggestive p-value threshold (p<0.0001)
-            return stepTwoCandidates.Where(x => x.Pvalue < suggestivePvalueThreshold).ToList();
+            return stepTwoCandidates.Where(x => x.Pvalue < _suggestivePvalueThreshold).ToList();
         }
 
 
@@ -158,7 +155,7 @@ namespace ConsoleApp1
                     record.Pvalue = Double.Parse(tempLine[3]);
                     filedata.Add(record);
                 }
-                catch (Exception e)
+                catch(FormatException) //We only want to swallow format exceptions, otherwise it's scary
                 {
                     // Assuming we can skip any line with an unavailable/ unparsable pvalue
                     Console.WriteLine("Could not parse pvalue for " + tempLine[3]);

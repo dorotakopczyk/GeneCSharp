@@ -14,18 +14,8 @@ namespace ConsoleApp1
             int searchSpace = 500000;
 
             var geneAnalyzer = new GeneAnalyzer(_indexPvalueThreshold, _suggestivePvalueThreshold, _inputFileLocation, searchSpace);
-            try
-            {
-                geneAnalyzer.RunProgram();
-            }
-            catch (Exception e)
-            {
-                Console.WriteLine("Exception: " + e.Message);
-            }
-            finally
-            {
-                Console.WriteLine("Executing finally block.");
-            }
+            geneAnalyzer.RunProgram();
+
         }
     }
 }

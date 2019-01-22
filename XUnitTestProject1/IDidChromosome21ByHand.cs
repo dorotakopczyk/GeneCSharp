@@ -17,6 +17,13 @@ namespace XUnitTestProject1
             var dataset = File.ReadLines(inputFileLocation).Skip(1); //Assuming row 1 is headers 
 
             var markers = geneAnalyzer.TransformInputFileToListOfObjects(dataset);
+
+            var result = geneAnalyzer.GetRecordsExceedingIndexThreshold(0.00001, markers);
+
+            Assert.Equal(3, result.Count);
+            Assert.Equal("rs11910404", result[0].Name);
+            Assert.Equal("rs16991720", result[1].Name);
+            Assert.Equal("rs16991721", result[2].Name);
         }
     }
 }

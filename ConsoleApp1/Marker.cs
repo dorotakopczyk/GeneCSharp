@@ -4,7 +4,7 @@ using System.Text;
 
 namespace ConsoleApp1
 {
-    class Marker
+    public class Marker
     {
         public string Name { get; set; }
         public string Chromosome { get; set; }

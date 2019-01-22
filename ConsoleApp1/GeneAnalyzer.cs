@@ -47,7 +47,7 @@ namespace ConsoleApp1
                     workingChromosome = chromosomeSet.OrderBy(x => x.Position).ToList();
                 }
 
-                var stepOneCandidates = SnpExceedingIndexThreshold(_indexPvalueThreshold, workingChromosome);
+                var stepOneCandidates = GetRecordsExceedingIndexThreshold(_indexPvalueThreshold, workingChromosome);
 
                 if (!stepOneCandidates.Any())
                 {
@@ -127,10 +127,10 @@ namespace ConsoleApp1
         }
 
 
-        private static List<Marker> SnpExceedingIndexThreshold(double indexPvalueThreshold, List<Marker> workingSet)
+        public List<Marker> GetRecordsExceedingIndexThreshold( List<Marker> workingSet)
         {
             // First we search for an index SNP exceeding the index SNP threshold (p<0.00001)
-            return workingSet.Where(x => x.Pvalue < indexPvalueThreshold).ToList();
+            return workingSet.Where(x => x.Pvalue < _indexPvalueThreshold).ToList();
         }
 
         public List<Marker> TransformInputFileToListOfObjects(IEnumerable<string> dataset)

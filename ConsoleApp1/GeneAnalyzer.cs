@@ -29,8 +29,7 @@ namespace ConsoleApp1
         {
             var dataset = File.ReadLines(_inputFileLocation).Skip(1); //Assuming row 1 is headers 
             var markers = TransformInputFileToListOfObjects(dataset);
-
-            //TODO: Verify order of chromosomes too 
+ 
             var chromosomeSets = markers.GroupBy(c => c.Chromosome).Select(c => c.ToList()).ToList();
 
             // All the work is done for a set of chromosomes,
@@ -184,9 +183,9 @@ namespace ConsoleApp1
                 // The number of markers in the region with a p-value less than the index p-value threshold
                 NumSigMarkers = region.Count(x => x.Pvalue < _indexPvalueThreshold),
                 NumSuggestiveMarkers = region.Count(x => x.Pvalue < _suggestivePvalueThreshold),
-                NumTotalMarkers = region.Count
+                
             };
-
+            newRegion.NumTotalMarkers = chromosomeSet.Count(x => x.Position >= newRegion.RegionStart && x.Position <= newRegion.RegionStop);
             newRegion.SizeOfRegion = newRegion.RegionStop - newRegion.RegionStart;
             return newRegion;
         }

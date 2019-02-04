@@ -31,7 +31,9 @@ namespace Test
             Assert.Equal(44, results.Single().NumSuggestiveMarkers);
             Assert.Equal(253, results.Single().NumTotalMarkers);
             Assert.Equal(767541, results.Single().SizeOfRegion);
-            //3	rs2854008	6	31,420,517	1.802E-06	31,378,987	32,146,528	15	44	235	767,542
+
+            //Region	MarkerName	Chr 	Position	P-value	   RegionStart	RegionStop	NumSigMarkers	NumSuggestiveMarkers	NumTotalMarkers	SizeOfRegion
+            //3	         rs2854008	6	  31,420,517	1.802E-06	31,378,987	32,146,528	15	44	235	767,542
         }
     }
 }

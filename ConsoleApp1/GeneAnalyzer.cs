@@ -16,6 +16,8 @@ namespace ConsoleApp1
 
         List<Region> _resultSet = new List<Region>();
 
+        List<Region> _altResultSet = new List<Region>();
+
         public GeneAnalyzer(double indexPvalueThreshold, double suggestivePvalueThreshold, string inputFileLocation, int searchSpace, string outputFileLocation)
         {
             _indexPvalueThreshold = indexPvalueThreshold;
@@ -36,80 +38,88 @@ namespace ConsoleApp1
             // where first the chromosomes are in order and then so are positions. (genomic order)
             foreach (var chromosomeSet in chromosomeSets)
             {
-                // ChromosomeSet cant be assigned to bc its a foreach iteration variable
-                // thus it's immutable. It needs to be assignable. This is important in case we need to 
-                // manipulate our list 
-                var workingChromosome = chromosomeSet;
-
-                //Verify position
-                var isSorted = IsSorted(workingChromosome);
-                if (!isSorted) //Be nice and resort if data got messed up
-                {
-                    Console.WriteLine($"Markers for chromosome {workingChromosome.First().Chromosome} are not in order. Reshuffling...");
-                    workingChromosome = chromosomeSet.OrderBy(x => x.Position).ToList();
-                }
-
-                var stepOneCandidates = GetRecordsExceedingIndexThreshold(workingChromosome);
-
-                if (!stepOneCandidates.Any())
-                {
-                    Console.WriteLine($"For chromosome {workingChromosome.First().Chromosome}, no markers found with an index p-value threshold exceeding {_indexPvalueThreshold}");
-                }
-                else
-                {
-                    // We will then search 500,000 base pairs in both directions 
-                    // We can now begin defining a region. Expand the search +/- 500k (position) 
-                    foreach (var candidate in stepOneCandidates)
-                    {
-                       var stepTwoCandidates = GetExpandedSearchSpace(workingChromosome, candidate.Position);
-
-                        // We can now build our regions and add them to the result set.
-                        var regionCandidates = GetRecordsExceedingSuggestiveThreshold(stepTwoCandidates);
-
-                        // If we find any marker meeting these criteria, 
-                        if (regionCandidates.Any())
-                        {
-                            foreach (var regionCandidate in regionCandidates)
-                            {
-                                // Then we will extend the window for another 500,000 base pairs beyond that and continue searching.
-                                // First, define the region by expanding the search results +/- 500k again
-                                var expandedResults = GetExpandedSearchSpace(workingChromosome, regionCandidate.Position);
-
-                                // We will define the start and stop positions of the region as the positions of the first and last marker
-                                // in the region that meet the SUGGESTIVE THRESHOLD.
-                                var newRegion = BuildRegion(_resultSet, expandedResults.ToList(), regionCandidate);
-
-                                if (IsDistinct(newRegion))
-                                {
-                                    newRegion.RegionIndex = _resultSet.Count + 1;
-                                    _resultSet.Add(newRegion);
-                                }
-                            }
-                        }
-                    }
-                }
+                BuildResultSetForChromosome(chromosomeSet);
             }
-
+            
             // However, there are several regions with many markers below this threshold that are not unique. These markers are correlated due to the underlying
             // structure of the genome (linkage disequilibrium), and we want to identify and summarize all of the UNIQUE regions.
             BuildResultFile(_outputFileLocation);
             return _resultSet;
         }
+        private void BuildResultSetForChromosome(List<Marker> chromosomeSet)
+        {
+            // ChromosomeSet cant be assigned to bc its a foreach iteration variable
+            // thus it's immutable. It needs to be assignable. This is important in case we need to 
+            // manipulate our list 
+            var workingChromosome = chromosomeSet;
+
+            //Verify position
+            workingChromosome = VerifyChromosonalOrder(chromosomeSet, workingChromosome);
+
+            var stepOneCandidates = GetRecordsExceedingIndexThreshold(workingChromosome);
+
+            if (!stepOneCandidates.Any())
+            {
+                Console.WriteLine($"For chromosome {workingChromosome.First().Chromosome}, no markers found with an index p-value threshold exceeding {_indexPvalueThreshold}");
+            }
+            else
+            {
+                // We will then search 500,000 base pairs in both directions 
+                // We can now begin defining a region. Expand the search +/- 500k (position) 
+                foreach (var candidate in stepOneCandidates)
+                {
+                    var stepTwoCandidates = GetExpandedSearchSpace(workingChromosome, candidate.Position);
+                    // We can now build our regions and add them to the result set.
+                    var regionCandidates = GetRecordsExceedingSuggestiveThreshold(stepTwoCandidates);
+
+                    // If we find any marker meeting these criteria, 
+                    if (regionCandidates.Any())
+                    {
+                        foreach (var regionCandidate in regionCandidates)
+                        {
+                            // Then we will extend the window for another 500,000 base pairs beyond that and continue searching.
+                            // First, define the region by expanding the search results +/- 500k again
+                            var expandedResults = GetExpandedSearchSpace(workingChromosome, regionCandidate.Position);
+
+                            // We will define the start and stop positions of the region as the positions of the first and last marker
+                            // in the region that meet the SUGGESTIVE THRESHOLD.
+                            var newRegion = BuildRegion(_resultSet, expandedResults.ToList(), regionCandidate);
+
+                            if (IsDistinct(newRegion))
+                            {
+                                newRegion.RegionIndex = _resultSet.Count + 1;
+                                _resultSet.Add(newRegion);
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        private static List<Marker> VerifyChromosonalOrder(List<Marker> chromosomeSet, List<Marker> workingChromosome)
+        {
+            var isSorted = IsSorted(workingChromosome);
+
+            if (!isSorted) //Be nice and resort if data got messed up
+            {
+                Console.WriteLine($"Markers for chromosome {workingChromosome.First().Chromosome} are not in order. Reshuffling...");
+                workingChromosome = chromosomeSet.OrderBy(x => x.Position).ToList();
+            }
+
+            return workingChromosome;
+        }
 
         private void BuildResultFile(string resultsFileLocation)
         {
-
-            string[] lines = { "First line", "Second line", "Third line" };
             // WriteAllLines creates a file, writes a collection of strings to the file,
             // and then closes the file.  You do NOT need to call Flush() or Close().
-
-            using (System.IO.StreamWriter file = new System.IO.StreamWriter(resultsFileLocation))
+            using (StreamWriter file = new System.IO.StreamWriter(resultsFileLocation))
             {
                 var header = new string[] { "Region", "MarkerName", "Chr", "Position", "P-value", "RegionStart",
                     "RegionStop", "NumSigMarkers", "NumSuggestiveMarkers",  "NumTotalMarkers", "SizeOfRegion" };
                 file.WriteLine(string.Join("\t", header));
 
-                foreach (var result in _resultSet)
+                foreach (var result in _altResultSet)
                 {
                     var arrayResult = new string[]
                     {

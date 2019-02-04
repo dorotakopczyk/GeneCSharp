@@ -7,7 +7,7 @@ namespace ConsoleApp1
         // java UniqueRegions input.txt output.txt 0.00001 0.0001 500000
         static void Main(string[] args)
         {
-            var inputFileLocation = "C:\\Users\\Dorota Kopczyk\\Downloads\\input.txt";//= args[0];
+            var inputFileLocation = "C:\\Users\\Dorota Kopczyk\\Downloads\\input6.txt";//= args[0];
             var outputFileLocation = "C:\\Users\\Dorota Kopczyk\\Downloads\\outputTry2.txt";//= args[1];
             var indexPvalueThreshold = "0.00001"; //= args[2];
             var suggestivePvalueThreshold = "0.0001";//= args[3];

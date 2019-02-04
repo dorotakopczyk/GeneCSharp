@@ -8,7 +8,7 @@ namespace Test
     {
         private readonly GeneAnalyzer _geneAnalyzer;
 
-        public TheyDidChromosome6ForMe(GeneAnalyzer geneAnalyzer)
+        public TheyDidChromosome6ForMe()
         {
             var inputFileLocation = "C:\\SC\\Repos\\GeneCSharp\\XUnitTestProject1\\inputBig.txt";
             var outputFileLocation = "C:\\SC\\Repos\\GeneCSharp\\XUnitTestProject1\\outputBig.txt";
@@ -29,8 +29,8 @@ namespace Test
             Assert.Equal(32146528, results.Single().RegionStop);
             Assert.Equal(15, results.Single().NumSigMarkers);
             Assert.Equal(44, results.Single().NumSuggestiveMarkers);
-            Assert.Equal(253, results.Single().NumTotalMarkers);
-            Assert.Equal(767541, results.Single().SizeOfRegion);
+            Assert.Equal(235, results.Single().NumTotalMarkers);
+            Assert.Equal(767542, results.Single().SizeOfRegion);
 
             //Region	MarkerName	Chr 	Position	P-value	   RegionStart	RegionStop	NumSigMarkers	NumSuggestiveMarkers	NumTotalMarkers	SizeOfRegion
             //3	         rs2854008	6	  31,420,517	1.802E-06	31378987	32146528	15	44	235	767,542

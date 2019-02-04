@@ -78,7 +78,7 @@ namespace Test
             Assert.Equal(3, results.Single().NumSigMarkers);
             Assert.Equal(3, results.Single().NumSuggestiveMarkers);
             Assert.Equal(3, results.Single().NumTotalMarkers);
-            Assert.Equal(4123, results.Single().SizeOfRegion);
+            Assert.Equal(4124, results.Single().SizeOfRegion);
         }
        
     }

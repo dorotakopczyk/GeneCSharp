@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography.X509Certificates;
 
 namespace ConsoleApp1
 {
@@ -16,7 +17,6 @@ namespace ConsoleApp1
 
         List<Region> _resultSet = new List<Region>();
 
-        List<Region> _altResultSet = new List<Region>();
 
         public GeneAnalyzer(double indexPvalueThreshold, double suggestivePvalueThreshold, string inputFileLocation, int searchSpace, string outputFileLocation)
         {
@@ -43,29 +43,25 @@ namespace ConsoleApp1
             
             // However, there are several regions with many markers below this threshold that are not unique. These markers are correlated due to the underlying
             // structure of the genome (linkage disequilibrium), and we want to identify and summarize all of the UNIQUE regions.
+            //ConsolidateResultSet(); 
             BuildResultFile(_outputFileLocation);
+            
             return _resultSet;
         }
+
         private void BuildResultSetForChromosome(List<Marker> chromosomeSet)
         {
-            // ChromosomeSet cant be assigned to bc its a foreach iteration variable
-            // thus it's immutable. It needs to be assignable. This is important in case we need to 
-            // manipulate our list 
-            var workingChromosome = chromosomeSet;
-
             //Verify position
-            workingChromosome = VerifyChromosonalOrder(chromosomeSet, workingChromosome);
+            var workingChromosome = VerifyChromosonalOrder(chromosomeSet);
 
             var stepOneCandidates = GetRecordsExceedingIndexThreshold(workingChromosome);
 
-            if (!stepOneCandidates.Any())
+            if (stepOneCandidates.Any())
             {
-                Console.WriteLine($"For chromosome {workingChromosome.First().Chromosome}, no markers found with an index p-value threshold exceeding {_indexPvalueThreshold}");
-            }
-            else
-            {
-                // We will then search 500,000 base pairs in both directions 
-                // We can now begin defining a region. Expand the search +/- 500k (position) 
+                //consolidate away index value thresholds that are within the search range of one another. 
+                //this saves runtime
+                ExtractSigMarkersCrossingSearchSpace(stepOneCandidates);
+
                 foreach (var candidate in stepOneCandidates)
                 {
                     var stepTwoCandidates = GetExpandedSearchSpace(workingChromosome, candidate.Position);
@@ -79,84 +75,91 @@ namespace ConsoleApp1
                         {
                             // Then we will extend the window for another 500,000 base pairs beyond that and continue searching.
                             // First, define the region by expanding the search results +/- 500k again
-                            var expandedResults = GetExpandedSearchSpace(workingChromosome, regionCandidate.Position);
+                            var expandedResults = GetExpandedSearchSpace(workingChromosome, regionCandidate.Position)
+                                .ToList();
 
                             // We will define the start and stop positions of the region as the positions of the first and last marker
                             // in the region that meet the SUGGESTIVE THRESHOLD.
-                            var newRegion = BuildRegion(_resultSet, expandedResults.ToList(), regionCandidate);
-
-                            if (IsDistinct(newRegion))
+                            var newRegion = BuildRegion(expandedResults.ToList(), regionCandidate);
+                            if (IsNewMarker(newRegion.MarkerName))
                             {
                                 newRegion.RegionIndex = _resultSet.Count + 1;
                                 _resultSet.Add(newRegion);
+                            }
+                            else
+                            {
+                                FixUpRegion(newRegion, expandedResults.ToList());
                             }
                         }
                     }
                 }
             }
+            else
+            {
+                Console.WriteLine(
+                    $"For chromosome {workingChromosome.First().Chromosome}, no markers found with an index p-value threshold exceeding {_indexPvalueThreshold}");
+            }
         }
 
-        private static List<Marker> VerifyChromosonalOrder(List<Marker> chromosomeSet, List<Marker> workingChromosome)
+        private void FixUpRegion(Region newRegion, List<Marker> chromosomeSet)
         {
-            var isSorted = IsSorted(workingChromosome);
+            var regionNeedingFixup = _resultSet.Single(x => x.MarkerName == newRegion.MarkerName);
 
-            if (!isSorted) //Be nice and resort if data got messed up
+            if (regionNeedingFixup.RegionStart > newRegion.RegionStart)
             {
-                Console.WriteLine($"Markers for chromosome {workingChromosome.First().Chromosome} are not in order. Reshuffling...");
-                workingChromosome = chromosomeSet.OrderBy(x => x.Position).ToList();
+                regionNeedingFixup.RegionStart = newRegion.RegionStart;
+            }
+            if (regionNeedingFixup.RegionStop < newRegion.RegionStop)
+            {
+                regionNeedingFixup.RegionStop = newRegion.RegionStop;
             }
 
-            return workingChromosome;
+            var region = chromosomeSet.Where(x => x.Pvalue < _suggestivePvalueThreshold).ToList();
+
+            regionNeedingFixup.NumSigMarkers = region.Count(x => x.Pvalue < _indexPvalueThreshold);
+            regionNeedingFixup.NumSuggestiveMarkers = region.Count(x => x.Pvalue < _suggestivePvalueThreshold);
+            regionNeedingFixup.NumTotalMarkers = chromosomeSet.Count(x => x.Position >= regionNeedingFixup.RegionStart && x.Position <= regionNeedingFixup.RegionStop);
+            regionNeedingFixup.SizeOfRegion = regionNeedingFixup.RegionStop - regionNeedingFixup.RegionStart + 1;
         }
 
-        private void BuildResultFile(string resultsFileLocation)
+        private void ExtractSigMarkersCrossingSearchSpace(List<Marker> stepOneCandidates)
         {
-            // WriteAllLines creates a file, writes a collection of strings to the file,
-            // and then closes the file.  You do NOT need to call Flush() or Close().
-            using (StreamWriter file = new System.IO.StreamWriter(resultsFileLocation))
+            for (int x = 0; x < stepOneCandidates.Count; x++)
             {
-                var header = new string[] { "Region", "MarkerName", "Chr", "Position", "P-value", "RegionStart",
-                    "RegionStop", "NumSigMarkers", "NumSuggestiveMarkers",  "NumTotalMarkers", "SizeOfRegion" };
-                file.WriteLine(string.Join("\t", header));
-
-                foreach (var result in _altResultSet)
+                var working = stepOneCandidates[x];
+                if (x > 0)
                 {
-                    var arrayResult = new string[]
+                    var previous = stepOneCandidates[x - 1];
+                    if (working.Position - previous.Position <= _searchSpace)
                     {
-                        result.RegionIndex.ToString(), result.MarkerName, result.Chr.ToString(),
-                        result.Position.ToString(),
-                        result.Pvalue.ToString(), result.RegionStart.ToString(), result.RegionStop.ToString(),
-                        result.NumSigMarkers.ToString(),
-                        result.NumSuggestiveMarkers.ToString(), result.NumTotalMarkers.ToString(),
-                        result.SizeOfRegion.ToString()
-                    };
+                        stepOneCandidates.Remove(working);
+                    }
 
-
-                    file.WriteLine(string.Join("\t", arrayResult));
                 }
             }
         }
 
-        private bool IsDistinct(Region newRegion)
+        private static List<Marker> VerifyChromosonalOrder(List<Marker> chromosomeSet)
         {
-            var dupe = _resultSet.Where(x => x.Pvalue == newRegion.Pvalue && 
-                                                  x.Chr == newRegion.Chr &&
-                                                  x.MarkerName == newRegion.MarkerName &&
-                                                  x.NumSigMarkers == newRegion.NumSigMarkers &&
-                                                  x.NumSuggestiveMarkers == newRegion.NumSuggestiveMarkers &&
-                                                  x.NumTotalMarkers == newRegion.NumTotalMarkers &&
-                                                  x.SizeOfRegion == newRegion.SizeOfRegion &&
-                                                  x.RegionStart == newRegion.RegionStart &&
-                                                  x.RegionStop == newRegion.RegionStop).ToList();
+            var isSorted = IsSorted(chromosomeSet);
 
-            if (dupe.Count > 0)
+            if (!isSorted) //Be nice and resort if data got messed up
+            {
+                Console.WriteLine($"Markers for chromosome {chromosomeSet.First().Chromosome} are not in order. Reshuffling...");
+                chromosomeSet = chromosomeSet.OrderBy(x => x.Position).ToList();
+            }
+
+            return chromosomeSet;
+        }
+
+        private bool IsNewMarker(string newRegionMarkerName)
+        {
+            if (_resultSet.Any(x => x.MarkerName == newRegionMarkerName))
             {
                 return false;
             }
-            else
-            {
-                return true;
-            }
+
+            return true;
         }
 
         public IEnumerable<Marker> GetExpandedSearchSpace(List<Marker> workingChromosome, int candidatePosition)
@@ -169,14 +172,14 @@ namespace ConsoleApp1
             return stepTwoCandidates;
         }
 
-        public Region BuildRegion( List<Region> resultSet, List<Marker> chromosomeSet, Marker regionCandidate)
+        public Region BuildRegion(List<Marker> chromosomeSet, Marker regionCandidate)
         {
             // We will define the start and stop positions of the region as the positions of the first and last marker
             // in the region that meet the SUGGESTIVE THRESHOLD. 
             // TODO: I was not 100% if that caps locked above meant that the region was also defined as ONLY markers that met the suggestive threshold
 
             var region = chromosomeSet.Where(x => x.Pvalue < _suggestivePvalueThreshold).ToList();
-
+        
             var newRegion = new Region()
             {
                 Chr = int.Parse(region.First().Chromosome),
@@ -193,8 +196,9 @@ namespace ConsoleApp1
                 // The number of markers in the region with a p-value less than the index p-value threshold
                 NumSigMarkers = region.Count(x => x.Pvalue < _indexPvalueThreshold),
                 NumSuggestiveMarkers = region.Count(x => x.Pvalue < _suggestivePvalueThreshold),
-                
+
             };
+
             newRegion.NumTotalMarkers = chromosomeSet.Count(x => x.Position >= newRegion.RegionStart && x.Position <= newRegion.RegionStop);
             newRegion.SizeOfRegion = newRegion.RegionStop - newRegion.RegionStart;
             return newRegion;
@@ -205,14 +209,11 @@ namespace ConsoleApp1
             // For any SNP on the same chromosome with a p-value that exceeds the suggestive p-value threshold (p<0.0001)
             return stepTwoCandidates.Where(x => x.Pvalue < _suggestivePvalueThreshold).ToList();
         }
-
-
         public List<Marker> GetRecordsExceedingIndexThreshold( List<Marker> workingSet)
         {
             // First we search for an index SNP exceeding the index SNP threshold (p<0.00001)
             return workingSet.Where(x => x.Pvalue < _indexPvalueThreshold).ToList();
         }
-
         public List<Marker> TransformInputFileToListOfObjects(IEnumerable<string> dataset)
         {
             List<Marker> filedata = new List<Marker>();
@@ -240,7 +241,6 @@ namespace ConsoleApp1
             return filedata;
         }
 
-
         public static bool IsSorted(List<Marker> listMarkers)
         {
             for (int i = 1; i < listMarkers.Count; i++)
@@ -255,7 +255,34 @@ namespace ConsoleApp1
             return true;
         }
 
-        
 
+
+        private void BuildResultFile(string resultsFileLocation)
+        {
+            // WriteAllLines creates a file, writes a collection of strings to the file,
+            // and then closes the file.  You do NOT need to call Flush() or Close().
+            using (StreamWriter file = new System.IO.StreamWriter(resultsFileLocation))
+            {
+                var header = new[] { "Region", "MarkerName", "Chr", "Position", "P-value", "RegionStart",
+                    "RegionStop", "NumSigMarkers", "NumSuggestiveMarkers",  "NumTotalMarkers", "SizeOfRegion" };
+                file.WriteLine(string.Join("\t", header));
+
+                foreach (var result in _resultSet)
+                {
+                    var arrayResult = new[]
+                    {
+                        result.RegionIndex.ToString(), result.MarkerName, result.Chr.ToString(),
+                        result.Position.ToString(),
+                        result.Pvalue.ToString(), result.RegionStart.ToString(), result.RegionStop.ToString(),
+                        result.NumSigMarkers.ToString(),
+                        result.NumSuggestiveMarkers.ToString(), result.NumTotalMarkers.ToString(),
+                        result.SizeOfRegion.ToString()
+                    };
+
+
+                    file.WriteLine(string.Join("\t", arrayResult));
+                }
+            }
+        }
     }
 }

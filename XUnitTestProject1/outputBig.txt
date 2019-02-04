@@ -1,2 +1,2 @@
 Region	MarkerName	Chr	Position	P-value	RegionStart	RegionStop	NumSigMarkers	NumSuggestiveMarkers	NumTotalMarkers	SizeOfRegion
-1	rs2854008	6	31420517	1.802E-06	31378987	32146528	15	44	235	767542
+1	rs2854008	6	31420517	1.802E-06	31378987	31648763	15	43	156	269776

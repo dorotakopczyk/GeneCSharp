@@ -81,7 +81,7 @@ namespace ConsoleApp1
                             // We will define the start and stop positions of the region as the positions of the first and last marker
                             // in the region that meet the SUGGESTIVE THRESHOLD.
                             var newRegion = BuildRegion(expandedResults.ToList(), regionCandidate);
-                            if (IsNewMarker(newRegion.MarkerName))
+                            if (IsNewMarker(newRegion.MarkerName) && !OverlapsWithPreviousRegion(newRegion))
                             {
                                 newRegion.RegionIndex = _resultSet.Count + 1;
                                 _resultSet.Add(newRegion);
@@ -101,9 +101,30 @@ namespace ConsoleApp1
             }
         }
 
+        private bool OverlapsWithPreviousRegion(Region newRegion)
+        {
+            if (_resultSet.Count <= 1)
+            {
+                return false;
+            }
+            var previousRegion = _resultSet.Last();
+            if ((newRegion.RegionStart - previousRegion.RegionStart < 500000) && (newRegion.RegionStart - previousRegion.RegionStart > 0))
+            {
+                return true;
+            }
+            return false; 
+        }
+
         private void FixUpRegion(Region newRegion, List<Marker> chromosomeSet)
         {
-            var regionNeedingFixup = _resultSet.Single(x => x.MarkerName == newRegion.MarkerName);
+            var regionNeedingFixup = _resultSet.FirstOrDefault(x => (x.RegionStart - newRegion.RegionStart) < _searchSpace &&
+                                                           (newRegion.RegionStart - x.RegionStart) > 0 &&
+                                                           x.Chr == newRegion.Chr);
+
+            if (regionNeedingFixup == null)
+            {
+                return;
+            }
 
             if (regionNeedingFixup.RegionStart > newRegion.RegionStart)
             {

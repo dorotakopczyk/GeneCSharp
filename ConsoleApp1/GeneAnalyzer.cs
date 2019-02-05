@@ -2,6 +2,7 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography.X509Certificates;
 
 namespace ConsoleApp1
 {
@@ -12,9 +13,9 @@ namespace ConsoleApp1
         readonly double _suggestivePvalueThreshold; 
         readonly string _inputFileLocation; 
         readonly int _searchSpace;
-        readonly string _outputFileLocation;
+        readonly string _outputFileLocation; 
 
-        private List<Region> _resultSet = new List<Region>();
+        List<Region> _resultSet = new List<Region>();
 
 
         public GeneAnalyzer(double indexPvalueThreshold, double suggestivePvalueThreshold, string inputFileLocation, int searchSpace, string outputFileLocation)
@@ -98,7 +99,7 @@ namespace ConsoleApp1
 
         private bool OverlapsWithPreviousRegion(Region newRegion)
         {
-            if (_resultSet.Count <= 1)
+            if (_resultSet.Count < 1)
             {
                 return false;
             }
@@ -112,7 +113,7 @@ namespace ConsoleApp1
 
         private void FixUpRegion(Region newRegion, List<Marker> chromosomeSet)
         {
-            var regionNeedingFixup = _resultSet.FirstOrDefault(x => (x.RegionStart - newRegion.RegionStart) < _searchSpace &&
+            var regionNeedingFixup = _resultSet.FirstOrDefault(x => (newRegion.RegionStart - x.RegionStart) < _searchSpace &&
                                                            (newRegion.RegionStart - x.RegionStart) >= 0 &&
                                                            x.Chr == newRegion.Chr);
 
@@ -137,7 +138,7 @@ namespace ConsoleApp1
             regionNeedingFixup.NumTotalMarkers = chromosomeSet.Count(x => x.Position >= regionNeedingFixup.RegionStart && x.Position <= regionNeedingFixup.RegionStop);
             regionNeedingFixup.SizeOfRegion = regionNeedingFixup.RegionStop - regionNeedingFixup.RegionStart + 1;
         }
-        
+
         private static List<Marker> VerifyChromosonalOrder(List<Marker> chromosomeSet)
         {
             var isSorted = IsSorted(chromosomeSet);
@@ -253,6 +254,8 @@ namespace ConsoleApp1
             }
             return true;
         }
+
+
 
         private void BuildResultFile(string resultsFileLocation)
         {

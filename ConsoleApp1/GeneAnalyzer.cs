@@ -2,7 +2,6 @@
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using System.Security.Cryptography.X509Certificates;
 
 namespace ConsoleApp1
 {
@@ -13,9 +12,9 @@ namespace ConsoleApp1
         readonly double _suggestivePvalueThreshold; 
         readonly string _inputFileLocation; 
         readonly int _searchSpace;
-        readonly string _outputFileLocation; 
+        readonly string _outputFileLocation;
 
-        List<Region> _resultSet = new List<Region>();
+        private List<Region> _resultSet = new List<Region>();
 
 
         public GeneAnalyzer(double indexPvalueThreshold, double suggestivePvalueThreshold, string inputFileLocation, int searchSpace, string outputFileLocation)
@@ -58,10 +57,6 @@ namespace ConsoleApp1
 
             if (stepOneCandidates.Any())
             {
-                //consolidate away index value thresholds that are within the search range of one another. 
-                //this saves runtime
-                ExtractSigMarkersCrossingSearchSpace(stepOneCandidates);
-
                 foreach (var candidate in stepOneCandidates)
                 {
                     var stepTwoCandidates = GetExpandedSearchSpace(workingChromosome, candidate.Position);
@@ -118,7 +113,7 @@ namespace ConsoleApp1
         private void FixUpRegion(Region newRegion, List<Marker> chromosomeSet)
         {
             var regionNeedingFixup = _resultSet.FirstOrDefault(x => (x.RegionStart - newRegion.RegionStart) < _searchSpace &&
-                                                           (newRegion.RegionStart - x.RegionStart) > 0 &&
+                                                           (newRegion.RegionStart - x.RegionStart) >= 0 &&
                                                            x.Chr == newRegion.Chr);
 
             if (regionNeedingFixup == null)
@@ -142,24 +137,7 @@ namespace ConsoleApp1
             regionNeedingFixup.NumTotalMarkers = chromosomeSet.Count(x => x.Position >= regionNeedingFixup.RegionStart && x.Position <= regionNeedingFixup.RegionStop);
             regionNeedingFixup.SizeOfRegion = regionNeedingFixup.RegionStop - regionNeedingFixup.RegionStart + 1;
         }
-
-        private void ExtractSigMarkersCrossingSearchSpace(List<Marker> stepOneCandidates)
-        {
-            for (int x = 0; x < stepOneCandidates.Count; x++)
-            {
-                var working = stepOneCandidates[x];
-                if (x > 0)
-                {
-                    var previous = stepOneCandidates[x - 1];
-                    if (working.Position - previous.Position <= _searchSpace)
-                    {
-                        stepOneCandidates.Remove(working);
-                    }
-
-                }
-            }
-        }
-
+        
         private static List<Marker> VerifyChromosonalOrder(List<Marker> chromosomeSet)
         {
             var isSorted = IsSorted(chromosomeSet);
@@ -275,8 +253,6 @@ namespace ConsoleApp1
             }
             return true;
         }
-
-
 
         private void BuildResultFile(string resultsFileLocation)
         {
